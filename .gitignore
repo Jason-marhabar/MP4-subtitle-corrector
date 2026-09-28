@@ -1,0 +1,36 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 打包产物
+build/
+dist/
+
+# 大文件与素材（不入库）
+# ffmpeg 二进制由 setup 脚本自动检测/准备，不提交到仓库
+assets/ffmpeg/*.exe
+*.mp4
+*.wav
+*.mkv
+test_output*/
+5号_测试素材/
+5号_测试输出/
+
+# 模型文件（Whisper 模型不入库，体积大）
+models/
+*.pt
+*.bin
+
+# IDE / 系统
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# 临时脚本与日志
+_*.py
+*.log
