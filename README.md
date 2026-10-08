@@ -20,6 +20,7 @@ MP4字幕矫正工具/
 ├── docs/               # 接口文档（对接说明书、接口对接文档）
 ├── assets/ffmpeg/      # 打包用 FFmpeg 资源（不入库，由脚本准备）
 ├── tests/              # 5号：测试脚本（测试计划/执行报告见 D:\yinpin）
+├── demo/               # 真实功能 Demo（demo_main.py 入口 / demo_build.py 打包）
 ├── requirements.txt    # Python 依赖清单
 ├── setup.ps1           # 一键环境安装脚本
 ├── build.py            # PyInstaller 打包配置
@@ -53,6 +54,55 @@ MP4字幕矫正工具/
 # 5. 打包 exe
 .\build.ps1
 ```
+
+## Demo 体验版（可直接双击，已打包）
+
+不需要装环境，双击 exe 就能用（已接入 3号 FFmpeg，**真提取音频 + 真输出矫正 MP4**）。
+
+**位置**：`dist_demo\MP4字幕矫正工具Demo\MP4字幕矫正工具Demo.exe`（桌面有快捷方式）
+
+**使用步骤**：
+1. 双击 exe 打开窗口
+2. 点"选择 MP4 文件"导入视频
+3. 点"选择目录"指定输出位置（**不选则输出到视频同目录**）
+4. 点"开始"，看进度条和日志
+5. 完成后输出目录出现：`xxx.wav`（16kHz 单声道音频）+ `xxx_矫正.mp4`（-c copy 防音画偏移）
+
+**说明**：字幕 `.srt` 暂不生成——界面会提示"Whisper 识别待 4号 ASR 模块接入"。4号 交付后即可补齐。
+
+**改代码后重新打包**（演示版）：
+```powershell
+D:\python3.11\python.exe demo\demo_build.py
+```
+
+**Demo 代码结构**：
+- `demo/demo_main.py` —— Demo 入口（复用 1号 GUI）
+- `demo/real_demo_scheduler.py` —— 真实调度（接 3号 FFmpeg）
+- `demo/demo_build.py` —— Demo 专用打包脚本
+- `demo/demo_smoke_test.py` —— 端到端自动验证（已 PASS）
+
+## GitHub 协作
+
+仓库：`https://github.com/Jason-marhabar/MP4-subtitle-corrector`（公开，master 分支）
+
+**成员拉取最新代码**：
+```powershell
+git clone https://github.com/Jason-marhabar/MP4-subtitle-corrector.git
+# 之后每次更新
+git pull
+```
+
+**提交自己的修改**：
+```powershell
+git add .
+git commit -m "说明改了什么"
+git push
+```
+
+**注意**：
+- 本机已配置 GitHub 代理（127.0.0.1:7890），直连不通时保持代理开启
+- Python 统一用 `D:\python3.11\python.exe`（PATH 默认 python 是 3.14，会踩坑）
+- 大文件（ffmpeg.exe/ffprobe.exe/模型）不入库，由 `assets\ffmpeg\` 脚本准备
 
 ## 分支管理规范
 
