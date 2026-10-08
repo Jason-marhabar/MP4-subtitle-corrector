@@ -24,9 +24,13 @@ args = [
     "--distpath", os.path.join(ROOT, "dist_demo"),
     "--workpath", os.path.join(ROOT, "build_demo"),
     "--specpath", os.path.join(ROOT, "build_demo"),
-    # 确保能找到 gui 与 ffmpeg_module 下的模块
-    "--paths", GUI_DIR,
+    # 确保能找到 ffmpeg_module 与 gui 下的模块
+    # 注意：ffmpeg_module 必须在 gui 前面！两个目录都有 model 包，
+    # PyInstaller 取第一个，必须先命中 ffmpeg_module/model（含 ffmpeg_processor）
     "--paths", FF_DIR,
+    "--paths", GUI_DIR,
+    "--hidden-import", "model.ffmpeg_processor",
+    "--hidden-import", "model.ffmpeg_utils",
 ]
 
 if os.path.exists(os.path.join(FFMPEG_DIR, "ffmpeg.exe")):
