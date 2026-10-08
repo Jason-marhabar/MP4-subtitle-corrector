@@ -34,3 +34,8 @@ desktop.ini
 # 临时脚本与日志
 _*.py
 *.log
+
+# Demo 打包产物
+build_demo/
+dist_demo/
+_demo_test_out/
