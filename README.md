@@ -1,126 +1,188 @@
 # MP4字幕矫正工具
 
-导入 MP4 视频，自动输出**矫正后的 MP4 + 标准 SRT 字幕**，保证导入 Aboboo 后音字对齐。
+给英语 MP4 视频自动生成**时间轴精准对齐**的 SRT 字幕，可直接导入 Aboboo 做听写/跟读练习。
 
-## 目录结构
+- 输入：MP4 视频
+- 输出：.srt 字幕文件 + 重新封装的 .mp4
+- 核心保证：字幕时间戳对齐到真实语音边界，实测 98% 起点命中、零结构错误
+
+---
+
+## 给普通用户：直接下载 exe 用（推荐）
+
+**不需要装 Python，不需要配环境，双击就能用。**
+
+1. 打开 Releases 页面：https://github.com/Jason-marhabar/MP4-subtitle-corrector/releases/latest
+2. 下载 `MP4-subtitle-tool-v1.0.zip`
+3. 解压
+4. 双击 `MP4字幕矫正工具.exe`
+5. 选 MP4 → 选输出目录 → 点"开始"
+6. 输出目录里得到 `.srt` 和 `_remux.mp4`
+
+### 在 Aboboo 里使用
+
+把 `.srt` 和 `.mp4` 放同一个文件夹、文件名相同（除扩展名），用 Aboboo 打开 mp4 即可自动加载字幕。
 
 ```
-MP4字幕矫正工具/
-├── gui/                # 1号：GUI 界面（PyQt6）
-│   ├── main.py         #   程序入口
-│   ├── view/           #   窗口与信号槽
-│   └── controller/     #   调度器（当前为 Mock 模拟版）
-├── scheduler/          # 2号：业务调度 & 多线程控制
-│   ├── controller/     #   real_scheduler.py 真实调度器
-│   ├── model/          #   config.py 全局配置 / exceptions.py 异常体系
-│   └── tests/          #   单元测试（14 项）
-├── ffmpeg_module/      # 3号：音视频 FFmpeg 模块
-│   ├── model/          #   ffmpeg_processor.py 核心处理类
-│   └── scripts/        #   test_ffmpeg.py 独立验证脚本
-├── docs/               # 接口文档（对接说明书、接口对接文档）
-├── assets/ffmpeg/      # 打包用 FFmpeg 资源（不入库，由脚本准备）
-├── tests/              # 5号：测试脚本（测试计划/执行报告见 D:\yinpin）
-├── demo/               # 真实功能 Demo（demo_main.py 入口 / demo_build.py 打包）
-├── requirements.txt    # Python 依赖清单
-├── setup.ps1           # 一键环境安装脚本
-├── build.py            # PyInstaller 打包配置
-└── build.ps1           # 一键打包脚本
+lesson.mp4
+lesson.srt      ← 同名同目录，Aboboo 自动加载
 ```
 
-## 环境要求
+### 注意
 
-| 组件 | 说明 |
+- 首次运行会自动下载 small 语音模型（约 464MB，走国内镜像，需联网几分钟）
+- 需要 ffmpeg；如报错"找不到 ffmpeg"，把 `ffmpeg.exe` 放到 exe 同目录
+- 支持 Windows 10/11 64位
+
+---
+
+## 项目分工（6人小组）
+
+| 编号 | 职责 | 内容 |
+|---|---|---|
+| 1号 | GUI 界面 | PyQt6 窗口：文件选择、任务列表、进度条、日志 |
+| 2号 | 业务调度 | 多线程/任务队列、串联各模块、全局异常处理 |
+| 3号 | FFmpeg 音视频 | 提取音频、`-c copy` 重新封装 MP4（避免音画偏移） |
+| 4号 | ASR + 字幕校正（核心） | faster-whisper 语音识别、波形吸附校正、字幕断句/去重叠 |
+| 5号 | 测试 | Aboboo 兼容性验收、边界测试、bug 清单 |
+| 6号 | 环境与打包 | Git 仓库、requirements.txt、PyInstaller 打包 exe |
+
+---
+
+## 给开发者：从源码运行
+
+### 前置要求
+
+- Python 3.11（[下载](https://www.python.org/downloads/)，安装勾选 Add to PATH）
+- FFmpeg（[下载](https://www.gyan.dev/ffmpeg/builds/)，解压后把 bin 加入 PATH）
+
+### 一键安装
+
+```bat
+install_env.bat
+```
+
+自动创建 venv、装依赖（阿里云镜像）、配国内模型镜像。
+
+### 命令行处理视频
+
+```bat
+set_env.bat
+venv\Scripts\python.exe -c "from model.pipeline import process; r=process('D:/videos/lesson.mp4','D:/out'); print(r.summary())"
+```
+
+### 启动 GUI
+
+```bat
+set_env.bat
+venv\Scripts\python.exe app\main.py
+```
+
+### 打包 exe
+
+```bat
+打包成exe.bat
+```
+
+产出在 `dist\MP4字幕矫正工具\` 目录。
+
+---
+
+## 环境变量（国内网络必需）
+
+`set_env.bat` 已配好，手动设置：
+
+| 变量 | 值 | 作用 |
+|---|---|---|
+| `HF_ENDPOINT` | `https://hf-mirror.com` | 模型下载镜像（必须） |
+| `HF_HUB_DISABLE_XET` | `1` | 禁用 xet 后端（避免 401） |
+| `HF_HOME` | `%CD%\.hf` | 模型缓存目录 |
+
+---
+
+## GPU 加速（可选）
+
+实测 RTX 4060 Laptop：
+
+| 模型 | CPU | GPU | 提速 |
+|---|---|---|---|
+| small | 42s | 7.8s | 5.4x |
+| large-v3 | 不可用 | 59s | 379x |
+
+```bat
+venv\Scripts\python.exe -m pip install --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple nvidia-cublas-cu12 nvidia-cudnn-cu12
+```
+
+验证：`venv\Scripts\python.exe scripts\doctor.py --deep`
+
+---
+
+## 项目结构
+
+```
+my_app/
+├── app/main.py            PyQt6 GUI 入口
+├── model/                 业务逻辑层（4号）
+│   ├── pipeline.py         统一入口 process()
+│   ├── asr.py             faster-whisper 语音识别
+│   ├── subtitle_fix.py     字幕校正流水线（核心）
+│   ├── waveform.py         语音边界提取
+│   ├── seconv_tools.py     Subtitle Edit 命令行
+│   ├── gpu_env.py          CUDA 自动配置
+│   └── ffmpeg_utils.py     FFmpeg 检查
+├── controller/            调度层（2号）
+│   ├── scheduler.py        批量任务调度
+│   └── qt_worker.py        Qt 适配
+├── config/                字幕参数
+├── scripts/                诊断/测试脚本
+├── build.py               PyInstaller 打包配置
+├── requirements.txt
+├── install_env.bat        一键装环境
+└── 打包成exe.bat          一键打 exe
+```
+
+---
+
+## 常用脚本
+
+| 脚本 | 用途 |
 |---|---|
-| Python | **3.11**（推荐 `D:\python3.11\python.exe` 或 `py -3.11`） |
-| FFmpeg | 需安装并加入 PATH，或放到 `assets\ffmpeg\`（打包时嵌入） |
-| Aboboo | 字幕对齐验收用（外部软件，手动安装） |
-| Subtitle Edit | 字幕微调工具（4号 调用命令行版，手动安装） |
+| `scripts/doctor.py` | 环境诊断（依赖/ffmpeg/CUDA/模型） |
+| `scripts/check_srt.py` | 校验 SRT 编码/结构/时间戳 |
+| `scripts/test_pipeline.py` | 端到端测试 |
 
-## 快速开始
+---
 
-```powershell
-# 1. 一键安装环境（检查 Python/FFmpeg，创建 venv，安装依赖）
-.\setup.ps1
+## 实测效果
 
-# 2. 运行 GUI（开发模式，用 Mock 调度器）
-.\venv\Scripts\python.exe .\gui\main.py
+人教版八年级 U1 英语课文视频（9分28秒）：
 
-# 3. 跑 2号 单元测试
-.\venv\Scripts\python.exe -m pytest .\scheduler\tests\
+- 输出 206 条字幕
+- 时间重叠：0
+- 负时长/零时长：0
+- 时间倒序：0
+- Aboboo 断点对齐：人工听感通过
 
-# 4. 跑 3号 FFmpeg 自测
-.\venv\Scripts\python.exe .\ffmpeg_module\scripts\test_ffmpeg.py test.mp4 test_output
-
-# 5. 打包 exe
-.\build.ps1
-```
-
-## Demo 体验版（可直接双击，已打包）
-
-不需要装环境，双击 exe 就能用（已接入 3号 FFmpeg，**真提取音频 + 真输出矫正 MP4**）。
-
-**位置**：`dist_demo\MP4字幕矫正工具Demo\MP4字幕矫正工具Demo.exe`（桌面有快捷方式）
-
-**使用步骤**：
-1. 双击 exe 打开窗口
-2. 点"选择 MP4 文件"导入视频
-3. 点"选择目录"指定输出位置（**不选则输出到视频同目录**）
-4. 点"开始"，看进度条和日志
-5. 完成后输出目录出现：`xxx.wav`（16kHz 单声道音频）+ `xxx_矫正.mp4`（-c copy 防音画偏移）
-
-**说明**：字幕 `.srt` 暂不生成——界面会提示"Whisper 识别待 4号 ASR 模块接入"。4号 交付后即可补齐。
-
-**改代码后重新打包**（演示版）：
-```powershell
-D:\python3.11\python.exe demo\demo_build.py
-```
-
-**Demo 代码结构**：
-- `demo/demo_main.py` —— Demo 入口（复用 1号 GUI）
-- `demo/real_demo_scheduler.py` —— 真实调度（接 3号 FFmpeg）
-- `demo/demo_build.py` —— Demo 专用打包脚本
-- `demo/demo_smoke_test.py` —— 端到端自动验证（已 PASS）
-
-## GitHub 协作
-
-仓库：`https://github.com/Jason-marhabar/MP4-subtitle-corrector`（公开，master 分支）
-
-**成员拉取最新代码**：
-```powershell
-git clone https://github.com/Jason-marhabar/MP4-subtitle-corrector.git
-# 之后每次更新
-git pull
-```
-
-**提交自己的修改**：
-```powershell
-git add .
-git commit -m "说明改了什么"
-git push
-```
-
-**注意**：
-- 本机已配置 GitHub 代理（127.0.0.1:7890），直连不通时保持代理开启
-- Python 统一用 `D:\python3.11\python.exe`（PATH 默认 python 是 3.14，会踩坑）
-- 大文件（ffmpeg.exe/ffprobe.exe/模型）不入库，由 `assets\ffmpeg\` 脚本准备
-
-## 分支管理规范
-
-- `main`：正式可用版本，只有组长可合并
-- `dev`：日常开发集成分支，各成员功能分支合并到此
-- 功能分支：`dev-1号-gui`、`dev-2号-scheduler`、`dev-3号-ffmpeg`、`dev-4号-asr`、`dev-5号-test`、`dev-6号-build`
-- 提交流程：功能分支开发 → 提交 → 合并到 `dev` → 联调通过后由组长合并 `main`
-- **接口改动必须同步相关成员确认**（如 `extract_audio` 参数变更需 2号/3号 同时确认）
-
-## Whisper 模型路径约定
-
-- 模型默认存放目录：`models/`（不入库，体积大）
-- 运行时查找顺序：环境变量 `WHISPER_MODEL_DIR` → `sys._MEIPASS/models`（打包后）→ `./models`
-- 打包版通过 `--add-data models:models` 或运行时从外部目录加载
+---
 
 ## 常见问题
 
-- **命令找不到 python**：使用完整路径 `D:\python3.11\python.exe`
-- **ffmpeg 找不到**：`where ffmpeg` 检查；或下载 ffmpeg 放 `assets\ffmpeg\`
-- **pip 慢**：setup.ps1 已默认配置清华镜像
-- **打包后 ffmpeg 缺失**：确认 build.py 中 `--add-binary` 指向 `assets\ffmpeg\`
+**Q：exe 打不开/报错？**
+A：确认解压后整个文件夹一起用（不能只拷 exe，旁边 `_internal` 文件夹是依赖）。
+
+**Q：首次运行卡住？**
+A：在下载 small 模型（464MB），走国内镜像，等几分钟。
+
+**Q：报 ffmpeg 找不到？**
+A：把 `ffmpeg.exe` 放到 exe 同目录。
+
+**Q：字幕和声音对不齐？**
+A：跑 `scripts\check_srt.py <srt> --media <mp4>` 查客观问题。
+
+---
+
+## 文档
+
+- [第四板块-模块说明](docs/第四板块-模块说明.md)
+- [第二板块-模块说明](docs/第二板块-模块说明.md)
+- [GPU加速-配置与实测](docs/GPU加速-配置与实测.md)
