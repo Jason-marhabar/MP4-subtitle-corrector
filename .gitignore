@@ -1,0 +1,15 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.hf/
+build/
+dist/
+*.spec
+.pipcache/
+.tmp/
+.DS_Store
+Thumbs.db
+*.log
+test_media/out/

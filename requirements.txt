@@ -1,0 +1,82 @@
+# ============================================================
+# 第六板块（工程化）参考用：本文件的依赖版本已在
+#   Windows 10/11 + Python 3.11.9 + RTX 4060 Laptop 上实测可用
+# 安装（使用国内镜像，避免超时）：
+#   python -m venv venv
+#   venv\Scripts\python.exe -m pip install -r requirements.txt ^
+#       -i https://mirrors.aliyun.com/pypi/simple/ ^
+#       --trusted-host mirrors.aliyun.com
+#
+# 重要：若 pip 缓存目录 %LOCALAPPDATA%\pip\cache 不可写（受沙箱/权限限制，
+# 报 WinError 5 拒绝访问），必须重定向缓存与临时目录，否则 pip 会卡在
+# "Building wheel" 阶段：
+#   set PIP_CACHE_DIR=%CD%\.pipcache
+#   set TMP=%CD%\.tmp
+#   set TEMP=%CD%\.tmp
+# ============================================================
+
+# ---- ASR 核心（第四板块）----
+faster-whisper==1.2.1
+ctranslate2==4.8.2          # faster-whisper 的推理后端
+tokenizers==0.23.2
+huggingface_hub==1.33.0     # 模型下载；国内需设 HF_ENDPOINT=https://hf-mirror.com
+onnxruntime==1.30.0         # Silero VAD 推理
+av==18.1.0                  # 音频解码（PyAV）
+
+# ---- 字幕处理（第四板块）----
+pysrt==1.1.2                # 字幕编辑（增删段、改时间戳）
+srt==3.5.3                  # 严格解析/校验（比 pysrt 更适合做格式校验）
+chardet==7.6.0              # 编码探测（pysrt 依赖）
+
+# ---- 数值与工具 ----
+numpy==2.4.6
+tqdm==4.70.1
+PyYAML==6.0.3
+
+# ---- 说明 ----
+# Subtitle Edit 的 seconv 不作为 pip 依赖，而是随程序分发的独立 exe：
+#   下载 https://github.com/SubtitleEdit/subtitleedit/releases
+#         → SeConv-Windows-x64.zip（v5.2.0，约 42MB，自包含）
+#   解压后得到 seconv.exe（约 81MB，仅额外依赖 libSkiaSharp.dll /
+#   libHarfBuzzSharp.dll），放到 tools\seconv\ 下即可，无需安装 .NET。
+#
+# ============================================================
+# GPU 加速（可选，但强烈建议：决定 large-v3 是否可用）
+# ============================================================
+# 实测（RTX 4060 Laptop 8GB，313s 英语音频）：
+#   small      CPU 42.0s (RTF  7.5x)  ->  GPU  7.8s (RTF 40.3x)   提速 5.4x
+#   large-v3   CPU 极慢（不可用）      ->  GPU 59.2s (RTF  5.3x)
+# 即：large-v3 只有靠 GPU 才有可用性。
+#
+# ctranslate2 的 Windows wheel 按 **CUDA 12.x** 编译，需要
+#   cublas64_12.dll / cublasLt64_12.dll   (cuBLAS 12)
+#   cudnn64_9.dll 等                       (cuDNN 9，语音识别有卷积层，必需)
+#
+# 三个实测坑：
+#   1. 系统装了 CUDA 13.0 也**没用**，主版本不匹配，必须是 12.x。
+#   2. 用 pip 分发版最省事（约 1.3GB，无需管理员权限、不必装几 GB Toolkit）：
+#
+#        venv\Scripts\python.exe -m pip install --no-deps ^
+#          -i https://pypi.tuna.tsinghua.edu.cn/simple ^
+#          nvidia-cublas-cu12 nvidia-cudnn-cu12
+#
+#      注意用清华镜像：阿里云镜像拉这两个大 wheel 会卡死（实测）。
+#      也不能省掉 --no-deps（cublas 会拖入 nvidia-cuda-nvrtc-cu12 等）。
+#   3. **必须把 DLL 目录加入 PATH**。ctranslate2 是 C++ 扩展，内部用
+#      LoadLibrary 按 PATH 解析；只调 os.add_dll_directory() **无效**（实测）。
+#      本项目的 model/gpu_env.py 会自动完成这件事，无需手工设置。
+#
+# 装完自检：
+#   venv\Scripts\python.exe scripts\doctor.py --deep
+#
+# 环境变量建议（国内网络必需）：
+#   set HF_ENDPOINT=https://hf-mirror.com     否则模型无法下载
+#   set HF_HOME=%CD%\.hf                      把模型缓存放在项目内，便于打包/迁移
+#   set PIP_CACHE_DIR=%CD%\.pipcache          沙箱/受限环境下必需，否则 pip 卡住
+#   set TMP=%CD%\.tmp
+#   set TEMP=%CD%\.tmp
+#
+# GPU 版可选依赖（按设备选择，通常不必手工装，见上方命令）：
+#   nvidia-cublas-cu12      # cuBLAS 12
+#   nvidia-cudnn-cu12       # cuDNN 9
+# ============================================================
